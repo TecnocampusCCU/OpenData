@@ -6,7 +6,7 @@
 name=OD
 qgisMinimumVersion=3.2
 description=OpenData
-version=Q3.200114
+version=Q3.200218
 author=CCU
 email=jlopez@tecnocampus.cat
 

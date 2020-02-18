@@ -70,7 +70,7 @@ import os.path
 Variables globals per a la connexio
 i per guardar el color dels botons
 """
-Versio_modul="V_Q3.200114"
+Versio_modul="V_Q3.200218"
 Fitxer=""
 progress=None
 aux=False
@@ -342,6 +342,7 @@ class OD:
         self.dlg.combo_src.clear()
         self.dlg.ListaCamps.clear()
         self.dlg.checkbox_tots.setChecked(False)
+        self.dlg.setEnabled(True)
         
         
         self.file2Combo("default_ws.txt", self.dlg.combo_ws, 'Selecciona un Web Service')
@@ -459,6 +460,7 @@ class OD:
         global listFields
         global urlToLoad
         
+        self.dlg.setEnabled(False)
         self.dlg.combo_nom.clear()
         self.dlg.combo_geom.clear()
         self.dlg.combo_lat.clear()
@@ -466,13 +468,15 @@ class OD:
         self.dlg.checkbox_tots.setChecked(False)
         urlToLoad = self.dlg.txt_url.text()
         if(self.dlg.txt_url.text()[-4:]=='.csv'):
-            error = self.loadCSV(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText())
+            error = self.loadCSV(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText(), False)
             if (error=="Error"):
+                self.dlg.setEnabled(True)
                 return
 
         else:
-            error = self.loadURL(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText())
+            error = self.loadURL(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText(), False)
             if (error=="Error"):
+                self.dlg.setEnabled(True)
                 return
             self.loadFields()
             
@@ -481,10 +485,11 @@ class OD:
         self.ompleCombos(self.dlg.combo_lat, listFields, 'Selecciona una latitud', True) 
         self.ompleCombos(self.dlg.combo_lng, listFields, 'Selecciona una longitud', True)  
         self.cercaCamps()
+        self.dlg.setEnabled(True)
 
          
     
-    def loadURL(self,nom,geom):
+    def loadURL(self,nom,geom, predeterminat):
         '''Función para guardar un Web Service de una url en una variable'''
         global data
         global listFields
@@ -524,11 +529,11 @@ class OD:
             self.dlg.text_info.setText('')
             self.dlg.progressBar.setValue(0)
             return "Error"
-        urlCargada=True
+        urlCargada=not predeterminat
         return
     
     
-    def loadCSV(self,nom,geom):
+    def loadCSV(self,nom,geom, predeterminat):
         '''Función para guardar un CSV de una url en una variable'''
         global listFields
         global textBox
@@ -599,7 +604,7 @@ class OD:
         textBox += u'Informació obtinguda del CSV\n'
         self.dlg.text_info.setText(textBox)
         self.MouText()
-        urlCargada=True
+        urlCargada=not predeterminat
         return
         
         
@@ -692,15 +697,15 @@ class OD:
         else:
             if not urlCargada:
                 errors.append('No hi ha cap URL carregada')
-            if self.dlg.combo_nom.currentText() == 'Selecciona un nom':
+            if self.dlg.combo_nom.currentText() == 'Selecciona un nom' or self.dlg.combo_nom.currentText() == '':
                 errors.append('No hi ha cap "Camp nom" seleccionat')
             if self.dlg.radio_geom.isChecked():
-                if self.dlg.combo_geom.currentText() == 'Selecciona una geometria':
+                if self.dlg.combo_geom.currentText() == 'Selecciona una geometria' or self.dlg.combo_geom.currentText() == '':
                     errors.append('No hi ha cap camp de geometria seleccionat')
             else:
-                if self.dlg.combo_lat.currentText() == 'Selecciona una latitud':
+                if self.dlg.combo_lat.currentText() == 'Selecciona una latitud' or self.dlg.combo_lat.currentText() == '':
                     errors.append('No hi ha cap camp de latitud seleccionat')
-                if self.dlg.combo_lng.currentText() == 'Selecciona una longitud':
+                if self.dlg.combo_lng.currentText() == 'Selecciona una longitud' or self.dlg.combo_lng.currentText() == '':
                     errors.append('No hi ha cap camp de longitud seleccionat')
         return errors
     
@@ -742,7 +747,7 @@ class OD:
         global isCSV
         global urlToLoad
     
-        
+        self.dlg.setEnabled(False)
         '''Tratamiento de errores'''
         llistaErrors = self.controlErrorsInput()
         if len(llistaErrors) > 0:
@@ -750,6 +755,7 @@ class OD:
             for i in range (0,len(llistaErrors)):
                 llista += ("- "+llistaErrors[i] + '\n')
             QMessageBox.information(None, "Error", llista)
+            self.dlg.setEnabled(True)
             return
         
         
@@ -765,13 +771,15 @@ class OD:
             campLng=None
             urlToLoad=self.dlg.combo_ws.currentText()
             if(urlToLoad[-4:]=='.csv'):
-                error = self.loadCSV(campNom, campGeometria)
+                error = self.loadCSV(campNom, campGeometria, True)
                 if (error=="Error"):
+                    self.dlg.setEnabled(True)
                     return
     
             else:
-                error = self.loadURL(campNom, campGeometria)
+                error = self.loadURL(campNom, campGeometria, True)
                 if (error=="Error"):
+                    self.dlg.setEnabled(True)
                     return
                 self.loadFields()
         else:
@@ -804,6 +812,7 @@ class OD:
                 QMessageBox.information(None, "Error", missatge)
                 self.dlg.text_info.setText('')
                 self.dlg.progressBar.setValue(0)
+                self.dlg.setEnabled(True)
                 return "Error"
             vlayergeom.setName(self.dlg.txt_nomTaula.text())
             
@@ -875,6 +884,7 @@ class OD:
         
             vlayergeom = self.fillVlayer(listEquipamentsGeometria,listFields,vlayergeom,campNom,campGeometria,campLng,campLat)
             if(vlayergeom=="Error"):
+                self.dlg.setEnabled(True)
                 return
         
         '''Se borran los campos no seleccionados''' 
@@ -903,7 +913,7 @@ class OD:
         textBox += u'\nProcés finalitzat.\n'
         self.dlg.text_info.setText(textBox)
         self.MouText()
-        
+        self.dlg.setEnabled(True)
 
     def createVlayer(self, listFields,campSrc):
         '''Función para crear el vlayer con un campo de id, un campo de nom, los campos pasados por el parámetro lisFields y el parámetro campSrc para crear la geometría'''

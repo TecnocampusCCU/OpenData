@@ -1,2 +1,9 @@
 latin-1
 utf-8
+cp1252
+iso-8859-1
+iso-8859-9
+iso-8859-15
+windows-1251
+windows-1252
+windows-1256
