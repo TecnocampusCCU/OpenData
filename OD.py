@@ -70,13 +70,12 @@ import os.path
 Variables globals per a la connexio
 i per guardar el color dels botons
 """
-Versio_modul="V_Q3.200218"
+Versio_modul="V_Q3.200305"
 Fitxer=""
 progress=None
 aux=False
 data=None
 urlCargada=False
-isCSV=False
 
 class OD:
     """QGIS Plugin Implementation."""
@@ -114,8 +113,11 @@ class OD:
         self.dlg.btnVeure.clicked.connect(self.on_click_Veure)
         self.dlg.radio_ws.toggled.connect(self.on_toggled_radio_ws)
         self.dlg.radio_geom.toggled.connect(self.on_toggled_radio_geom)
+        self.dlg.radio_latlng.toggled.connect(self.on_toggled_radio_latlng)
+        self.dlg.radio_nogeom.toggled.connect(self.on_toggled_radio_nogeom)
         self.dlg.checkbox_tots.stateChanged.connect(self.on_click_checkbox_tots)
         self.dlg.btnCrs.clicked.connect(self.selectcrs)
+        self.dlg.btnBorrar.clicked.connect(self.on_click_Borrar)
 
 
         # Declare instance attributes
@@ -306,6 +308,7 @@ class OD:
             self.dlg.combo_src.setCurrentText(src)
         self.dlg.show()
     
+    
     def CrsId2AuthID(self, crsid=0):
         toconvert = QgsCoordinateReferenceSystem()
         if crsid=="" or crsid==0 or crsid is None:
@@ -314,6 +317,9 @@ class OD:
             toconvert.createFromId(int(crsid), QgsCoordinateReferenceSystem.InternalCrsId)
             converted=toconvert.authid()
         return converted.lower()
+    
+    
+    
     def estatInicial(self):
         '''
         @param self:
@@ -328,6 +334,11 @@ class OD:
         self.dlg.progressBar.setValue(0)
         self.dlg.radio_ws.setChecked(True)
         self.dlg.radio_geom.setChecked(True)
+        self.dlg.combo_lat.setEnabled(False)
+        self.dlg.combo_lng.setEnabled(False)
+        self.dlg.label_lat.setEnabled(False)
+        self.dlg.label_lng.setEnabled(False)
+        self.dlg.label_nogeom.setEnabled(False)
         self.dlg.txt_url.clear()
         self.dlg.txt_url.setPlaceholderText("Introdueix la url del Web Service")
         self.dlg.txt_nomTaula.clear()
@@ -342,11 +353,13 @@ class OD:
         self.dlg.combo_src.clear()
         self.dlg.ListaCamps.clear()
         self.dlg.checkbox_tots.setChecked(False)
+        self.dlg.checkBox_save.setChecked(False)
         self.dlg.setEnabled(True)
         
         
-        self.file2Combo("default_ws.txt", self.dlg.combo_ws, 'Selecciona un Web Service')
+        self.file2Combo("default_ws.txt", self.dlg.combo_ws, 'Selecciona una opció')
         self.file2Combo("codificacio.txt", self.dlg.combo_cod,'')
+        self.dlg.combo_cod.setCurrentText('latin1')
         self.file2Combo("src.txt", self.dlg.combo_src,'')
         
         
@@ -371,8 +384,8 @@ class OD:
         llista=[]
         if (archivo=="default_ws.txt"):
             for line in file:
-                if (line[:3]=="url"):
-                    llista.append(line[4:].replace('\n',''))
+                if (line.split('=',1)[0]=="url"):
+                    llista.append(line.split('=',1)[1].replace('\n',''))
         else:
             for line in file:
                 llista.append(line.replace('\n',''))
@@ -391,30 +404,48 @@ class OD:
         """Aquesta es una funcio auxiliar que controla la visibilitat de diferents 
         elements de la interficie segons la opcio marcada"""
         if enabled:
-            self.dlg.combo_ws.setEnabled(True)
+            self.dlg.text_ws.setEnabled(True)
             self.dlg.text_url.setEnabled(False)
+            self.dlg.checkBox_save.setEnabled(False)
+            self.dlg.checkBox_save.setChecked(False)
             
         else:
-            self.dlg.combo_ws.setEnabled(False)
+            self.dlg.text_ws.setEnabled(False)
             self.dlg.text_url.setEnabled(True)
+            self.dlg.checkBox_save.setEnabled(True)
             
     def on_toggled_radio_geom(self,enabled):
         """Aquesta es una funcio auxiliar que controla la visibilitat de diferents 
         elements de la interficie segons la opcio marcada"""
         if enabled:
             self.dlg.combo_geom.setEnabled(True)
-            self.dlg.combo_lat.setEnabled(False)
-            self.dlg.combo_lng.setEnabled(False)
             self.dlg.label_geom.setEnabled(True)
-            self.dlg.label_lat.setEnabled(False)
-            self.dlg.label_lng.setEnabled(False)
         else:
             self.dlg.combo_geom.setEnabled(False)
+            self.dlg.label_geom.setEnabled(False)
+    
+    def on_toggled_radio_latlng(self,enabled):
+        """Aquesta es una funcio auxiliar que controla la visibilitat de diferents 
+        elements de la interficie segons la opcio marcada"""
+        if enabled:
             self.dlg.combo_lat.setEnabled(True)
             self.dlg.combo_lng.setEnabled(True)
-            self.dlg.label_geom.setEnabled(False)
             self.dlg.label_lat.setEnabled(True)
             self.dlg.label_lng.setEnabled(True)
+        else:
+            self.dlg.combo_lat.setEnabled(False)
+            self.dlg.combo_lng.setEnabled(False)
+            self.dlg.label_lat.setEnabled(False)
+            self.dlg.label_lng.setEnabled(False)
+            
+            
+    def on_toggled_radio_nogeom(self,enabled):
+        """Aquesta es una funcio auxiliar que controla la visibilitat de diferents 
+        elements de la interficie segons la opcio marcada"""
+        if enabled:
+            self.dlg.label_nogeom.setEnabled(True)
+        else:
+            self.dlg.label_nogeom.setEnabled(False)
     
         
     def MouText(self):
@@ -448,12 +479,38 @@ class OD:
                 combo.setCurrentIndex(0)
         combo.blockSignals (False)
             
+            
     def on_click_checkbox_tots(self, state):
         if state == QtCore.Qt.Checked:
             self.dlg.ListaCamps.selectAll()
             self.dlg.ListaCamps.setFocus()
         else:
             self.dlg.ListaCamps.clearSelection()
+        
+        
+    def on_click_Borrar(self):
+        if self.dlg.combo_ws.currentText() != 'Selecciona una opció' and self.dlg.combo_ws.currentText() != '':
+            reply = QMessageBox.question(None, "Advertència", "Segur que vols eliminar aquesta URL de predeterminats?", QMessageBox.Ok | QMessageBox.Cancel)
+            
+            if reply==QMessageBox.Ok:
+                this_folder = os.path.dirname(os.path.abspath(__file__))   
+                file = open(this_folder+'\\default_ws.txt') 
+                cont=0
+                strToWrite = ''
+                for line in file:
+                    if (line.split('=',1)[1].replace('\n','')==self.dlg.combo_ws.currentText()):
+                        cont+=1
+                    elif (cont>=1 and cont<=6):
+                        cont+=1
+                    else:
+                        strToWrite+=line
+                file.close()
+                file = open(this_folder+'\\default_ws.txt', "w")
+                file.write(strToWrite)
+                file.close()
+                
+                self.file2Combo("default_ws.txt", self.dlg.combo_ws, 'Selecciona una opció')
+        
         
     def on_click_Carregar(self):
         global data
@@ -467,18 +524,18 @@ class OD:
         self.dlg.combo_lng.clear()
         self.dlg.checkbox_tots.setChecked(False)
         urlToLoad = self.dlg.txt_url.text()
-        if(self.dlg.txt_url.text()[-4:]=='.csv'):
-            error = self.loadCSV(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText(), False)
-            if (error=="Error"):
-                self.dlg.setEnabled(True)
-                return
+        
+        error = self.loadCSV(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText(), self.dlg.combo_cod.currentText(), False)
+        if (error=="Error"):
+            self.dlg.setEnabled(True)
+            return
 
-        else:
+        '''else:
             error = self.loadURL(self.dlg.combo_nom.currentText(), self.dlg.combo_geom.currentText(), False)
             if (error=="Error"):
                 self.dlg.setEnabled(True)
                 return
-            self.loadFields()
+            self.loadFields()'''
             
         self.ompleCombos(self.dlg.combo_nom, listFields, 'Selecciona un nom', True)
         self.ompleCombos(self.dlg.combo_geom, listFields, 'Selecciona una geometria', True)
@@ -487,62 +544,16 @@ class OD:
         self.cercaCamps()
         self.dlg.setEnabled(True)
 
-         
-    
-    def loadURL(self,nom,geom, predeterminat):
-        '''Función para guardar un Web Service de una url en una variable'''
-        global data
-        global listFields
-        global textBox
-        global isCSV
-        global urlCargada
-        global urlToLoad
-        
-        isCSV=False
-        urlCargada=False
-        
-        self.dlg.combo_nom.clear()
-        self.dlg.combo_geom.clear()
-        self.dlg.combo_lat.clear()
-        self.dlg.combo_lng.clear()
-        self.dlg.ListaCamps.clear()
-        
-        
-        self.dlg.progressBar.setValue(50) 
-        textBox = u'Accedint a la url '+urlToLoad+'\n'
-        self.dlg.text_info.setText(textBox)
-        self.MouText()
-        
-                
-        try:
-            with urllib.request.urlopen(urlToLoad,timeout=20) as url:
-                data = json.loads(url.read().decode())
-        except Exception as ex:
-            missatge="La URL no és vàlida"
-            if (type(ex).__name__=='timeout'):
-                missatge="Time out esgotat" 
-            print (missatge)
-            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-            message = template.format(type(ex).__name__, ex.args)
-            print (message)
-            QMessageBox.information(None, "Error", missatge)
-            self.dlg.text_info.setText('')
-            self.dlg.progressBar.setValue(0)
-            return "Error"
-        urlCargada=not predeterminat
-        return
     
     
-    def loadCSV(self,nom,geom, predeterminat):
+    def loadCSV(self,nom,geom, campCod, predeterminat):
         '''Función para guardar un CSV de una url en una variable'''
         global listFields
         global textBox
-        global isCSV
         global urlCargada
         global urlToLoad
         global data
         
-        isCSV= True
         urlCargada = False
         
         self.dlg.combo_nom.clear()
@@ -583,7 +594,7 @@ class OD:
         '''Se extraen los nombres de campo del CSV'''
         try:
             data=[]
-            with open(filename, newline='', encoding=self.dlg.combo_cod.currentText()) as f:
+            with open(filename, newline='', encoding=campCod) as f:
                 reader = csv.reader(f)
                 for row in reader:
                     data.append(row)
@@ -618,34 +629,7 @@ class OD:
                     file.write(chunk)
         
         
-    def loadFields(self):
-        '''Función para detectar todos los campos que aparecen en la variable obtenida de cargar un Web Service'''
-        global data
-        global textBox
-        global listFields
-        
-        self.dlg.progressBar.setValue(80)
-        textBox += u'Detectant camps...\n'
-        self.dlg.text_info.setText(textBox)
-        self.MouText()
-        
-        
-        listFields = []
-        z=0
-        for x in range(len(data['equipaments'])):
-            for y in data['equipaments'][x]:
-                if(y=='id'):
-                    if not(y+'_'+str(z) in listFields):
-                        listFields.append(y+'_'+str(z))
-                else:
-                    if not(y in listFields):
-                        listFields.append(y)
-                z=z+1
-        
-        self.dlg.progressBar.setValue(0)
-        textBox += u'Informació obtinguda del Web Service\n'
-        self.dlg.text_info.setText(textBox)
-        self.MouText()   
+     
     
     def on_click_Veure(self):
         '''Función para visualizar la url en el navegador predeterminado del SO'''
@@ -663,22 +647,28 @@ class OD:
         src=None     
         cont=0
         for line in file:
-            if (line[4:].replace('\n','')==self.dlg.combo_ws.currentText()):
-                cont=cont+1
+            if (line.split('=',1)[1].replace('\n','')==self.dlg.combo_ws.currentText()):
+                cont+=1
             elif (cont==1):
-                nom = line[4:].replace('\n','')
-                cont=cont+1
+                nom = line.split('=')[1].replace('\n','')
+                cont+=1
             elif (cont==2):
-                geometria = line[4:].replace('\n','')
-                cont=cont+1
+                geometria = line.split('=',1)[1].replace('\n','')
+                cont+=1
             elif (cont==3):
-                cod = line[4:].replace('\n','')
-                cont=cont+1
+                lat = line.split('=',1)[1].replace('\n','')
+                cont+=1
             elif (cont==4):
-                src = line[4:].replace('\n','')
+                lng = line.split('=',1)[1].replace('\n','')
+                cont+=1
+            elif (cont==5):
+                cod = line.split('=',1)[1].replace('\n','')
+                cont=cont+1
+            elif (cont==6):
+                src = line.split('=',1)[1].replace('\n','')
                 break
         file.close()     
-        return(nom,geometria,cod,src)
+        return(nom,geometria, lat, lng,cod,src)
     
     
     def controlErrorsInput(self):
@@ -692,7 +682,7 @@ class OD:
         if self.dlg.txt_nomTaula.text() == '':
             errors.append('No hi ha cap nom')
         if self.dlg.radio_ws.isChecked():
-            if self.dlg.combo_ws.currentText() == 'Selecciona un Web Service':
+            if self.dlg.combo_ws.currentText() == 'Selecciona una opció':
                 errors.append('No hi ha cap Web Service seleccionat')
         else:
             if not urlCargada:
@@ -702,7 +692,7 @@ class OD:
             if self.dlg.radio_geom.isChecked():
                 if self.dlg.combo_geom.currentText() == 'Selecciona una geometria' or self.dlg.combo_geom.currentText() == '':
                     errors.append('No hi ha cap camp de geometria seleccionat')
-            else:
+            elif not self.dlg.radio_nogeom.isChecked():
                 if self.dlg.combo_lat.currentText() == 'Selecciona una latitud' or self.dlg.combo_lat.currentText() == '':
                     errors.append('No hi ha cap camp de latitud seleccionat')
                 if self.dlg.combo_lng.currentText() == 'Selecciona una longitud' or self.dlg.combo_lng.currentText() == '':
@@ -744,7 +734,6 @@ class OD:
         global lbl_Cost
         global data
         global listFields
-        global isCSV
         global urlToLoad
     
         self.dlg.setEnabled(False)
@@ -762,130 +751,85 @@ class OD:
         textBox = u'INICI DEL PROCÉS\n\n'
         self.dlg.text_info.setText(textBox)
         self.MouText()
+        campNom = ''
+        campGeometria = ''
+        campCod = ''
+        campSrc = ''
+        campLat = ''
+        campLng = ''
+        
         
         '''Obtención de Nom y Geometria'''
         if self.dlg.radio_ws.isChecked():
-            campNom,campGeometria,campCod,campSrc=self.searchNomGeomCodSrcInFile()
-            #En futuras implementaciones se pueden añadir los campos de latitud y longitud en el archivo.
-            campLat=None
-            campLng=None
+            campNom,campGeometria,campLat, campLng, campCod,campSrc=self.searchNomGeomCodSrcInFile()
             urlToLoad=self.dlg.combo_ws.currentText()
-            if(urlToLoad[-4:]=='.csv'):
-                error = self.loadCSV(campNom, campGeometria, True)
-                if (error=="Error"):
-                    self.dlg.setEnabled(True)
-                    return
-    
-            else:
-                error = self.loadURL(campNom, campGeometria, True)
-                if (error=="Error"):
-                    self.dlg.setEnabled(True)
-                    return
-                self.loadFields()
-        else:
-            campNom = self.dlg.combo_nom.currentText()
-            campGeometria = self.dlg.combo_geom.currentText()
-            campCod=self.dlg.combo_cod.currentText()
-            campSrc=self.dlg.combo_src.currentText()
-            campLat=self.dlg.combo_lat.currentText()
-            campLng=self.dlg.combo_lng.currentText()
-        
-        if isCSV:
-            '''Tratamiento para CSV'''
-            self.dlg.progressBar.setValue(60)
-            textBox += u'Generant capa vectorial...\n'
-            self.dlg.text_info.setText(textBox)
-            self.MouText()
-            if self.dlg.radio_geom.isChecked():
-                file = 'file:///'+os.environ['TMP']+'\WS.csv?encoding=%s&delimiter=%s&wktField=%s&crs=%s' % (campCod,",", campGeometria,campSrc) 
-            else:
-                file = 'file:///'+os.environ['TMP']+'\WS.csv?encoding=%s&delimiter=%s&xField=%s&yField=%s&crs=%s' % (campCod,",", campLng, campLat,campSrc)
-            vlayergeom = QgsVectorLayer(file, self.dlg.txt_nomTaula.text(),'delimitedtext')
-            try:
-                vlayergeom = self.comprobarValidez(vlayergeom) #Sirve tanto para comprobar la corrección del CSV como para pasar el layer a memoria
-            except Exception as ex:
-                missatge="La geometria seleccionada no és correcte"
-                print (missatge)
-                template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-                message = template.format(type(ex).__name__, ex.args)
-                print (message)
-                QMessageBox.information(None, "Error", missatge)
-                self.dlg.text_info.setText('')
-                self.dlg.progressBar.setValue(0)
-                self.dlg.setEnabled(True)
-                return "Error"
-            vlayergeom.setName(self.dlg.txt_nomTaula.text())
-            
-            
-            self.dlg.progressBar.setValue(80)
-            textBox += u'Adaptant camps...\n'
-            self.dlg.text_info.setText(textBox)
-            self.MouText()
-            
-            '''Se renombra el campo de nombre y se añade un id'''
-            vlayergeom.startEditing()
-            fields = vlayergeom.fields()
-            for x in range(len(fields)):
-                if(campNom in fields[x].displayName()):
-                    vlayergeom.renameAttribute(x,'Nom')
-                    break;
-            vlayergeom.addAttribute(QgsField('id', QVariant.Int))
-            vlayergeom.commitChanges()
-            
-            '''Se autonumera el id'''
-            features = vlayergeom.getFeatures()
-            vlayergeom.startEditing()
-            x=1
-            for feature in features:
-                vlayergeom.changeAttributeValue(feature.id(),self.getIndexOfField(vlayergeom,"id"),x)
-                x=x+1
-            vlayergeom.commitChanges()
-            
-            
-            
-        else:
-            '''Tratamiento para no CSV'''
-            listEquipaments = data['equipaments'] #lista de dicts
-            listEquipamentsGeometria = []
-            
-            
-            '''Se descartan las entidades que no dispongan de los campos campGeometria y campNom'''
-            textBox += u'Preparant les dades...\n'
-            self.dlg.text_info.setText(textBox)
-            self.MouText()
-            
-    
-            for x in range(len(listEquipaments)):
-                if self.dlg.radio_geom.isChecked():
-                    if campGeometria in listEquipaments[x] and campNom in listEquipaments[x]:
-                        listEquipamentsGeometria.append(listEquipaments[x])
-                else:
-                    if self.dlg.combo_lng.currentText() in listEquipaments[x] and self.dlg.combo_lat.currentText() in listEquipaments[x] and campNom in listEquipaments[x]:
-                            listEquipamentsGeometria.append(listEquipaments[x])
-                    
-            '''Se crea el vlayer'''
-            self.dlg.progressBar.setValue(50)
-            textBox += u'Creació de la taula '+self.dlg.txt_nomTaula.text()+'\n'
-            self.dlg.text_info.setText(textBox)
-            self.MouText()
-            
-            if campNom in listFields:
-                listFields.remove(campNom)
-            if campGeometria in listFields:
-                listFields.remove(campGeometria)  
-            vlayergeom = self.createVlayer(listFields,campSrc)
-            
-            
-            '''Se añaden las entidades al vlayer'''
-            self.dlg.progressBar.setValue(60)
-            textBox += u'Inserint dades...\n'
-            self.dlg.text_info.setText(textBox)
-            self.MouText()
-        
-            vlayergeom = self.fillVlayer(listEquipamentsGeometria,listFields,vlayergeom,campNom,campGeometria,campLng,campLat)
-            if(vlayergeom=="Error"):
+            #if(urlToLoad[-4:]=='.csv'):
+            error = self.loadCSV(campNom, campGeometria, campCod,True)
+            if (error=="Error"):
                 self.dlg.setEnabled(True)
                 return
+    
+        else:
+            campNom = self.dlg.combo_nom.currentText()
+            campCod=self.dlg.combo_cod.currentText()
+            campSrc=self.dlg.combo_src.currentText()   
+            if self.dlg.radio_geom.isChecked():
+                campGeometria = self.dlg.combo_geom.currentText()
+            elif self.dlg.radio_latlng.isChecked():
+                campLat=self.dlg.combo_lat.currentText()
+                campLng=self.dlg.combo_lng.currentText()
+        
+        '''Creación vector layer'''
+        self.dlg.progressBar.setValue(60)
+        textBox += u'Generant capa vectorial...\n'
+        self.dlg.text_info.setText(textBox)
+        self.MouText()
+        if campGeometria != '':
+            file = 'file:///'+os.environ['TMP']+'\WS.csv?encoding=%s&delimiter=%s&wktField=%s&crs=%s' % (campCod,",", campGeometria,campSrc)
+        elif campLat != '' and campLng != '':
+            file = 'file:///'+os.environ['TMP']+'\WS.csv?encoding=%s&delimiter=%s&xField=%s&yField=%s&crs=%s' % (campCod,",", campLng, campLat,campSrc)
+        else:
+            file = 'file:///'+os.environ['TMP']+'\WS.csv?encoding=%s&delimiter=%s' % (campCod,",")  
+        vlayergeom = QgsVectorLayer(file, self.dlg.txt_nomTaula.text(),'delimitedtext')
+        try:
+            vlayergeom = self.comprobarValidez(vlayergeom) #Sirve tanto para comprobar la corrección del CSV como para pasar el layer a memoria
+        except Exception as ex:
+            missatge="La geometria seleccionada no és correcte"
+            print (missatge)
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print (message)
+            QMessageBox.information(None, "Error", missatge)
+            self.dlg.text_info.setText('')
+            self.dlg.progressBar.setValue(0)
+            self.dlg.setEnabled(True)
+            return "Error"
+        vlayergeom.setName(self.dlg.txt_nomTaula.text())
+               
+        self.dlg.progressBar.setValue(80)
+        textBox += u'Adaptant camps...\n'
+        self.dlg.text_info.setText(textBox)
+        self.MouText()
+        
+        '''Se renombra el campo de nombre y se añade un id'''
+        vlayergeom.startEditing()
+        fields = vlayergeom.fields()
+        for x in range(len(fields)):
+            if(campNom in fields[x].displayName()):
+                vlayergeom.renameAttribute(x,'Nom')
+                break;
+        vlayergeom.addAttribute(QgsField('id', QVariant.Int))
+        vlayergeom.commitChanges()
+        
+        '''Se autonumera el id'''
+        features = vlayergeom.getFeatures()
+        vlayergeom.startEditing()
+        x=1
+        for feature in features:
+            vlayergeom.changeAttributeValue(feature.id(),self.getIndexOfField(vlayergeom,"id"),x)
+            x=x+1
+        vlayergeom.commitChanges()
+           
         
         '''Se borran los campos no seleccionados''' 
         if not self.dlg.radio_ws.isChecked():
@@ -908,6 +852,75 @@ class OD:
         myLayerNode=QgsLayerTreeLayer(vlayergeom)
         root.insertChildNode(0,myLayerNode)
         myLayerNode.setCustomProperty("showFeatureCount", True)
+        
+        
+        if self.dlg.checkBox_save.isChecked():
+            this_folder = os.path.dirname(os.path.abspath(__file__))   
+            '''UPDATE'''
+            file = open(this_folder+'\\default_ws.txt') 
+            cont=0
+            strToWrite = ''
+            for line in file:
+                if (line.split('=',1)[1].replace('\n','')==self.dlg.txt_url.text()):
+                    cont+=1
+                    strToWrite+= line
+                elif (cont==1):
+                    cont+=1
+                    strToWrite+= 'nom='+campNom+'\n'
+                elif (cont==2):
+                    cont+=1
+                    if self.dlg.radio_geom.isChecked():
+                        strToWrite+= 'geom='+campGeometria+'\n'
+                    else:
+                        strToWrite+='geom=\n'
+                elif (cont==3):
+                    cont+=1
+                    if self.dlg.radio_latlng.isChecked():
+                        strToWrite+= 'lat='+campLat+'\n'
+                    else:
+                        strToWrite+='lat=\n'
+                elif (cont==4):
+                    cont+=1
+                    if self.dlg.radio_latlng.isChecked():
+                        strToWrite+= 'lng='+campLng+'\n'
+                    else:
+                        strToWrite+='lng=\n'
+                elif (cont==5):
+                    cont+=1
+                    strToWrite+= 'cod='+campCod+'\n'
+                elif (cont==6):
+                    cont+=1
+                    strToWrite+= 'src='+campSrc+'\n'
+                else:
+                    strToWrite+=line
+            file.close()
+            file = open(this_folder+'\\default_ws.txt', "w")
+            file.write(strToWrite)
+            file.close()    
+            
+            '''APEND'''
+            if cont == 0:
+                strToAppend = '\nurl='+self.dlg.txt_url.text()
+                strToAppend += '\nnom='+campNom
+                if self.dlg.radio_geom.isChecked():
+                    strToAppend += '\ngeo='+campGeometria
+                else:
+                    strToAppend += '\ngeo='
+                if self.dlg.radio_latlng.isChecked():
+                    strToAppend += '\nlat='+campLat
+                    strToAppend += '\nlng='+campLng
+                else:
+                    strToAppend += '\nlat='
+                    strToAppend += '\nlng='
+                strToAppend += '\ncod='+campCod
+                strToAppend += '\nsrc='+campSrc
+                file = open(this_folder+'\\default_ws.txt', "a")
+                file.write(strToAppend)
+                file.close()
+            
+            
+            self.file2Combo("default_ws.txt", self.dlg.combo_ws, 'Selecciona una opció')
+            
         
         self.dlg.progressBar.setValue(100)
         textBox += u'\nProcés finalitzat.\n'
@@ -953,7 +966,6 @@ class OD:
                 self.dlg.progressBar.setValue(0)
                 return "Error"
             
-            
             values=[]
             values.append(QVariant(x))
             values.append(QVariant(str(llistaFeatures[x][campNom])))
@@ -962,8 +974,7 @@ class OD:
                     if llistaCamps[y] in llistaFeatures[x]:
                         values.append(QVariant(str(llistaFeatures[x][llistaCamps[y]])))
                     else:
-                        values.append(QVariant(str('')))   
-                    
+                        values.append(QVariant(str('')))           
             
             feature.setAttributes(values)
             vlayer.startEditing()
