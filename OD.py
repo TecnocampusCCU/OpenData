@@ -118,6 +118,7 @@ class OD:
         self.dlg.checkbox_tots.stateChanged.connect(self.on_click_checkbox_tots)
         self.dlg.btnCrs.clicked.connect(self.selectcrs)
         self.dlg.btnBorrar.clicked.connect(self.on_click_Borrar)
+        self.dlg.btnBorrar.setToolTip('Esborra la url seleccionada')
 
 
         # Declare instance attributes
