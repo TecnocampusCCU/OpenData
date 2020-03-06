@@ -6,7 +6,7 @@
 name=OD
 qgisMinimumVersion=3.2
 description=OpenData
-version=Q3.200305
+version=Q3.200306
 author=CCU
 email=jlopez@tecnocampus.cat
 
@@ -29,7 +29,7 @@ homepage=CCU
 category=Plugins
 icon=icon.png
 # experimental flag
-experimental=True
+experimental=False
 
 # deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
